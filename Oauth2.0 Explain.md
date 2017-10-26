@@ -252,6 +252,8 @@ If granted issue access token (optionally with a refresh token). If denied retur
 ## Implicit Mode
 Mainly used in browser. Since the client (Javascript program) resides in the user-agent (web browser) and can interact with the web browser directly. And in this type no "refresh token" is issued. Access token is directly issued.
 
+**Note: 1. Rely on Registration of Redirect URI. 2. Resource Owner Must present**
+
 ```
      +----------+
      | Resource |
@@ -306,3 +308,92 @@ state: OPTIONAL for client-server to track the converstaion.
 ```
 
 2. Access Token Response
+```
+HTTP/1.1 302 Found
+     Location: http://example.com/cb#access_token=2YotnFZFEjr1zCsicMWpAA
+               &state=xyz&token_type=example&expires_in=3600
+
+access_token: MUST, lead by a # fragment sign
+state: OPTIONAL, but if client set, then must set.
+token_type: MUST, but defined in [RFC6750] or [OAuth-HTTP-MAC]
+expires_in: OPTIONAL, expire seconds
+scope: OPTIONAL, space deliminated strings
+```
+**Note: There is no refresh token returned in this mode.**
+
+3. Error Response
+Redirect stops. Notify the user about the error. Redirect to error handler 
+```
+HTTP/1.1 302 Found
+   Location: https://client.example.com/cb#error=access_denied&state=xyz
+
+error: MUST, one of:
+invalid_request/unauthorized_client/access_denied/unsupported_response_type/invalid_scope/server_error/temporarily_unavailable
+
+error_description: optional
+error_uri: optional, must url encode
+state: if set by request, then must set by response
+```
+
+## Other 2 Authorization Mode
+We ommit the other 2 authorization mode. They are not quite useful in web/app development.
+
+# Issue Access Token
+If the client-server authorization runs in the "Authentication Code" mode then there is a step to exchange `access code` into `access token`. Issue access token is an important, seperate steop. It can be success, or failure.
+
+## Success
+```
+HTTP/1.1 200 OK
+     Content-Type: application/json;charset=UTF-8
+     Cache-Control: no-store
+     Pragma: no-cache
+
+     {
+       "access_token":"2YotnFZFEjr1zCsicMWpAA",
+       "token_type":"example",
+       "expires_in":3600,
+       "refresh_token":"tGzv3JOkF0XG5Qx2TlKWIA",
+       "example_parameter":"example_value"
+     }
+
+access_token: MUST. 
+token_type: See previous discussion about available types
+expires_in: MUST. Seconds of living.
+refresh_token: OPTIONAL. If you want your token to be refreshed
+scope: MUST. Defined by a space deliminated string. URL encoded.
+```
+
+## Failure
+```
+HTTP/1.1 400 Bad Request
+     Content-Type: application/json;charset=UTF-8
+     Cache-Control: no-store
+     Pragma: no-cache
+
+     {
+       "error":"invalid_request"
+     }
+
+error: MUST
+invalid_request/invalid_client/invalid_grant/unauthorized_client/unsupported_grant_type/invalid_scope
+error_description: OPTIONAL
+error_uri: OPTIONAL URL encoded.
+
+```
+
+# Refresh A Token
+POST method. Client is confidential client. Client authentication must perform. Client-refresh token relationship must be validate. Refresh Token itself must be validate.
+
+```
+POST /token HTTP/1.1
+     Host: server.example.com
+     Authorization: Basic czZCaGRSa3F0MzpnWDFmQmF0M2JW
+     Content-Type: application/x-www-form-urlencoded
+
+     grant_type=refresh_token&refresh_token=tGzv3JOkF0XG5Qx2TlKWIA
+
+grant_type: MUST set to 'refresh_token'
+refresh_token: MUST
+scope: OPTIONAL
+```
+
